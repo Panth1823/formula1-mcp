@@ -17,6 +17,19 @@ function registerAllTools(mcpServer: McpServer) {
   // Live data endpoints
   mcpServer.tool("getLiveTimingData", {}, async () => {
     const data = await f1Service.getLiveTimingData();
+    if (data.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              message:
+                "No live F1 session data available at the moment. Please check back during a race weekend.",
+            }),
+          },
+        ],
+      };
+    }
     return {
       content: [{ type: "text", text: JSON.stringify(data) }],
     };

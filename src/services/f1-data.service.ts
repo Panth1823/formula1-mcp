@@ -5,7 +5,7 @@ import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 const OPENF1_BASE_URL = "https://api.openf1.org/v1";
 
 // FastF1 API base URL - we'll need to use ergast API as a substitute since FastF1 is Python-only
-const FASTF1_BASE_URL = "http://ergast.com/api/f1";
+const FASTF1_BASE_URL = "https://api.jolpi.ca/ergast/f1";
 
 // Simple in-memory cache with TTL
 interface CacheItem<T> {
