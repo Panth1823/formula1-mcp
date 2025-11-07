@@ -325,27 +325,34 @@ app.post("/mcp", async (req: Request, res: Response) => {
       // Register all tools on the temporary server
       registerAllTools(tempServer);
       
-      // Connect server to the transport
+      // Connect server to the transport and start both transports
       await tempServer.connect(serverTransport);
+      await serverTransport.start();
+      await clientTransport.start();
       
       // Handle the incoming message
       const message = req.body;
       if (message && typeof message === 'object') {
-        // Send message through transport
-        await clientTransport.send(message);
-        
-        // Wait for response (with timeout)
-        const responsePromise = new Promise((resolve) => {
+        // Set up response handler before sending
+        let responseReceived = false;
+        const responsePromise = new Promise<any>((resolve) => {
           const timeout = setTimeout(() => {
-            resolve(null);
+            if (!responseReceived) {
+              resolve(null);
+            }
           }, 10000); // 10 second timeout
           
           clientTransport.onmessage = (response: any) => {
+            responseReceived = true;
             clearTimeout(timeout);
             resolve(response);
           };
         });
         
+        // Send message through transport
+        await clientTransport.send(message);
+        
+        // Wait for response
         const response = await responsePromise;
         
         // Clean up
