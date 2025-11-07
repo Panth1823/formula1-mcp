@@ -286,6 +286,44 @@ app.use(express.json());
 // sessionId to transport
 const transports: { [sessionId: string]: SSEServerTransport } = {};
 
+// Smithery expects /mcp endpoint
+// GET /mcp - establishes SSE connection
+app.get("/mcp", async (_: Request, res: Response) => {
+  const transport = new SSEServerTransport("/mcp", res);
+  transports[transport.sessionId] = transport;
+  res.on("close", () => {
+    delete transports[transport.sessionId];
+  });
+  await server.connect(transport);
+});
+
+// POST /mcp - handles incoming messages
+app.post("/mcp", async (req: Request, res: Response) => {
+  // Check for sessionId in query params, body, or headers
+  const sessionId = 
+    (req.query.sessionId as string) || 
+    req.body?.sessionId || 
+    req.headers['x-session-id'] as string;
+  
+  if (!sessionId) {
+    // If no sessionId, this might be a direct POST request
+    // Try to create a transport on the fly or return an error
+    res.status(400).json({ 
+      error: "Session ID required. Please establish SSE connection first via GET /mcp",
+      hint: "Send a GET request to /mcp first to establish SSE connection"
+    });
+    return;
+  }
+  
+  const transport = transports[sessionId];
+  if (transport) {
+    await transport.handlePostMessage(req, res);
+  } else {
+    res.status(400).json({ error: "No transport found for sessionId" });
+  }
+});
+
+// Keep /sse and /messages for backward compatibility
 app.get("/sse", async (_: Request, res: Response) => {
   const transport = new SSEServerTransport("/messages", res);
   transports[transport.sessionId] = transport;

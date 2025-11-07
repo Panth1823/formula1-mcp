@@ -2,6 +2,7 @@
 
 startCommand:
   type: http
+  endpoint: /mcp
   configSchema:
     # JSON Schema defining the configuration options for the MCP
     type: object
