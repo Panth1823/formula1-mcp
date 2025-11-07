@@ -2,6 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import express from "express";
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
 
@@ -310,5 +311,56 @@ if (process.env.MCP_STANDALONE === "1") {
 
   process.on("unhandledRejection", (reason) => {
     console.error("Unhandled rejection:", reason);
+  });
+}
+
+// HTTP server mode for MCP over HTTP transport
+// Enabled when PORT is provided (typical deployment environments)
+if (process.env.PORT) {
+  const port = Number(process.env.PORT) || 3000;
+  const app = express();
+  app.use(express.json({ limit: "1mb" }));
+
+  // Health endpoint
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
+
+  // Well-known MCP config
+  app.get("/.well-known/mcp-config", (_req, res) => {
+    res.json({
+      name: "f1-mcp-server",
+      version: "1.0.0",
+      endpoint: "/mcp/v1",
+    });
+  });
+
+  // Minimal MCP JSON-RPC endpoint to respond to initialize
+  app.post("/mcp/v1", (req, res) => {
+    const body = req.body ?? {};
+    const id = body.id ?? null;
+    const method = body.method ?? "";
+
+    if (method === "initialize") {
+      return res.json({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2025-06-18",
+          serverInfo: { name: "f1-mcp-server", version: "1.0.0" },
+          capabilities: {},
+        },
+      });
+    }
+
+    return res.status(200).json({
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32601, message: "Method not found" },
+    });
+  });
+
+  app.listen(port, () => {
+    console.error(`F1 MCP Server (HTTP) listening on :${port}`);
   });
 }

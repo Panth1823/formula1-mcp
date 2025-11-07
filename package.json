@@ -19,10 +19,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",
-    "axios": "^1.6.7"
+    "axios": "^1.6.7",
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "@smithery/sdk": "^1.6.0",
+    "@types/express": "^5.0.5",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.19",
     "@types/ws": "^8.18.1",
