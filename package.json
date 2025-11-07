@@ -10,7 +10,8 @@
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "start": "node build/index.js",
     "dev": "ts-node-dev --respawn src/index.ts",
-    "dev:debug": "ts-node-dev --inspect --respawn src/index.ts"
+    "dev:debug": "ts-node-dev --inspect --respawn src/index.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",

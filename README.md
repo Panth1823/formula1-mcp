@@ -33,7 +33,24 @@ npm install
 npm run build
 ```
 
-## Setup
+### Deployment Options
+
+#### Option 1: Deploy to Glama (Recommended for Production)
+
+Deploy your server to Glama for a production-ready hosted solution:
+
+1. Push your code to GitHub
+2. Sign up at [glama.ai](https://glama.ai)
+3. Deploy from GitHub repository
+4. See [DEPLOY_GLAMA.md](./DEPLOY_GLAMA.md) for quick start or [GLAMA_DEPLOYMENT.md](./GLAMA_DEPLOYMENT.md) for detailed guide
+
+**Benefits:**
+- ✅ Production-grade infrastructure
+- ✅ Persistent state and dedicated VMs
+- ✅ Built-in monitoring and logs
+- ✅ Free tier available (1 MCP server)
+
+#### Option 2: Local Setup
 
 Add to your MCP client config:
 
