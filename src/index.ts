@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
+import express, { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
 
@@ -277,10 +278,37 @@ server.tool("clearCache", {}, async () => {
 });
 
 console.error("Starting F1 MCP Server...");
-const transport = new StdioServerTransport();
-(async () => {
+
+const app = express();
+app.use(express.json());
+
+// To support multiple simultaneous connections we have a lookup object from
+// sessionId to transport
+const transports: { [sessionId: string]: SSEServerTransport } = {};
+
+app.get("/sse", async (_: Request, res: Response) => {
+  const transport = new SSEServerTransport("/messages", res);
+  transports[transport.sessionId] = transport;
+  res.on("close", () => {
+    delete transports[transport.sessionId];
+  });
   await server.connect(transport);
-})();
+});
+
+app.post("/messages", async (req: Request, res: Response) => {
+  const sessionId = req.query.sessionId as string;
+  const transport = transports[sessionId];
+  if (transport) {
+    await transport.handlePostMessage(req, res);
+  } else {
+    res.status(400).send("No transport found for sessionId");
+  }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.error(`F1 MCP Server listening on port ${port}`);
+});
 
 process.on("uncaughtException", (err) => {
   console.error("Uncaught exception:", err);
