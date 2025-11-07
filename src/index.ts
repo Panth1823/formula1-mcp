@@ -2,9 +2,6 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import express, { Request, Response } from "express";
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
 
@@ -283,117 +280,13 @@ function registerAllTools(mcpServer: McpServer) {
 // Register all tools on the main server
 registerAllTools(server);
 
-// Create a pre-initialized server instance for direct POST requests (Smithery scanner)
-// This avoids the overhead of creating a new server for each request
-let directPostServer: McpServer | null = null;
-function getDirectPostServer(): McpServer {
-  if (!directPostServer) {
-    directPostServer = new McpServer({
-      name: "f1-mcp-server",
-      version: "1.0.0",
-    });
-    registerAllTools(directPostServer);
-  }
-  return directPostServer;
-}
-
 console.error("Starting F1 MCP Server...");
 
-// Check if running in HTTP mode (Smithery) or stdio mode (local)
-const isHttpMode = process.env.SMITHERY_MODE === 'http' || process.env.PORT !== undefined;
-
-if (isHttpMode) {
-  // HTTP mode for Smithery deployment
-  const app = express();
-  app.use(express.json());
-
-  const transports: { [sessionId: string]: SSEServerTransport } = {};
-
-  // GET /mcp - establishes SSE connection
-  app.get("/mcp", async (_: Request, res: Response) => {
-    const transport = new SSEServerTransport("/mcp", res);
-    transports[transport.sessionId] = transport;
-    res.on("close", () => {
-      delete transports[transport.sessionId];
-    });
-    await server.connect(transport);
-  });
-
-  // POST /mcp - handles incoming messages
-  app.post("/mcp", async (req: Request, res: Response) => {
-    const sessionId = 
-      (req.query.sessionId as string) || 
-      req.body?.sessionId || 
-      req.headers['x-session-id'] as string;
-    
-    if (!sessionId) {
-      // Direct POST request without sessionId (e.g., Smithery scanner)
-      // Use in-memory transport with pre-initialized server for fast response
-      try {
-        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-        const tempServer = getDirectPostServer();
-        
-        await tempServer.connect(serverTransport);
-        await serverTransport.start();
-        await clientTransport.start();
-        
-        const message = req.body;
-        if (message && typeof message === 'object') {
-          let responseReceived = false;
-          const responsePromise = new Promise<any>((resolve) => {
-            const timeout = setTimeout(() => {
-              if (!responseReceived) {
-                resolve(null);
-              }
-            }, 5000); // 5 second timeout
-            
-            clientTransport.onmessage = (response: any) => {
-              responseReceived = true;
-              clearTimeout(timeout);
-              resolve(response);
-            };
-          });
-          
-          await clientTransport.send(message);
-          const response = await responsePromise;
-          
-          await clientTransport.close();
-          await serverTransport.close();
-          
-          if (response) {
-            res.json(response);
-          } else {
-            res.status(500).json({ error: "Request timeout" });
-          }
-        } else {
-          res.status(400).json({ error: "Invalid request body" });
-        }
-      } catch (error: any) {
-        console.error("Error handling direct POST request:", error);
-        res.status(500).json({ error: error.message || "Internal server error" });
-      }
-      return;
-    }
-    
-    const transport = transports[sessionId];
-    if (transport) {
-      await transport.handlePostMessage(req, res);
-    } else {
-      res.status(400).json({ error: "No transport found for sessionId" });
-    }
-  });
-
-  const port = process.env.PORT || 3000;
-  app.listen(port, () => {
-    console.error(`F1 MCP Server listening on port ${port} (HTTP mode)`);
-  });
-} else {
-  // Stdio mode for local development
-  const transport = new StdioServerTransport();
-  (async () => {
-    await server.connect(transport);
-  })();
-}
+// Stdio mode for local development
+const transport = new StdioServerTransport();
+(async () => {
+  await server.connect(transport);
+})();
 
 process.on("uncaughtException", (err) => {
   console.error("Uncaught exception:", err);

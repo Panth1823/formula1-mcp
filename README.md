@@ -1,7 +1,5 @@
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/panth1823-formula1-mcp-badge.png)](https://mseep.ai/app/panth1823-formula1-mcp)
 
-[![smithery badge](https://smithery.ai/badge/@Panth1823/formula1-mcp)](https://smithery.ai/server/@Panth1823/formula1-mcp)
-
 # The Formula1 MCP Server ! 🏎️💨
 
 A TypeScript-based Formula 1 MCP server, bringing the thrill of real-time and historical F1 racing data straight to your fingertips via the Model Context Protocol. Faster than Verstappen on a hot lap! (Okay, maybe not _that_ fast, but it's trying!)
@@ -17,15 +15,7 @@ A TypeScript-based Formula 1 MCP server, bringing the thrill of real-time and hi
 
 ## Getting Started
 
-### Quick Install via Smithery
-
-To install the Formula 1 MCP Server automatically via Smithery:
-
-```bash
-npx -y @smithery/cli install @Panth1823/formula1-mcp --client claude
-```
-
-### Manual Installation
+### Installation
 
 1. Clone the repo:
 ```bash
