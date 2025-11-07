@@ -283,6 +283,20 @@ function registerAllTools(mcpServer: McpServer) {
 // Register all tools on the main server
 registerAllTools(server);
 
+// Create a pre-initialized server instance for direct POST requests (Smithery scanner)
+// This avoids the overhead of creating a new server for each request
+let directPostServer: McpServer | null = null;
+function getDirectPostServer(): McpServer {
+  if (!directPostServer) {
+    directPostServer = new McpServer({
+      name: "f1-mcp-server",
+      version: "1.0.0",
+    });
+    registerAllTools(directPostServer);
+  }
+  return directPostServer;
+}
+
 console.error("Starting F1 MCP Server...");
 
 // Check if running in HTTP mode (Smithery) or stdio mode (local)
@@ -314,14 +328,10 @@ if (isHttpMode) {
     
     if (!sessionId) {
       // Direct POST request without sessionId (e.g., Smithery scanner)
-      // Use in-memory transport for one-off requests
+      // Use in-memory transport with pre-initialized server for fast response
       try {
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-        const tempServer = new McpServer({
-          name: "f1-mcp-server",
-          version: "1.0.0",
-        });
-        registerAllTools(tempServer);
+        const tempServer = getDirectPostServer();
         
         await tempServer.connect(serverTransport);
         await serverTransport.start();
@@ -335,7 +345,7 @@ if (isHttpMode) {
               if (!responseReceived) {
                 resolve(null);
               }
-            }, 10000);
+            }, 5000); // 5 second timeout
             
             clientTransport.onmessage = (response: any) => {
               responseReceived = true;
