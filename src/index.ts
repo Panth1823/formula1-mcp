@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-import express, { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
 
@@ -14,32 +12,30 @@ const server = new McpServer({
 
 const f1Service = F1DataService.getInstance();
 
-// Helper function to register all tools on a server instance
-function registerAllTools(mcpServer: McpServer) {
-  // Live data endpoints
-  mcpServer.tool("getLiveTimingData", {}, async () => {
-    const data = await f1Service.getLiveTimingData();
-    return {
-      content: [{ type: "text", text: JSON.stringify(data) }],
-    };
-  });
+// Live data endpoints
+server.tool("getLiveTimingData", {}, async () => {
+  const data = await f1Service.getLiveTimingData();
+  return {
+    content: [{ type: "text", text: JSON.stringify(data) }],
+  };
+});
 
-  mcpServer.tool("getCurrentSessionStatus", {}, async () => {
-    const data = await f1Service.getCurrentSessionStatus();
-    return {
-      content: [{ type: "text", text: JSON.stringify(data) }],
-    };
-  });
+server.tool("getCurrentSessionStatus", {}, async () => {
+  const data = await f1Service.getCurrentSessionStatus();
+  return {
+    content: [{ type: "text", text: JSON.stringify(data) }],
+  };
+});
 
-  mcpServer.tool("getDriverInfo", { driverId: z.string() }, async ({ driverId }) => {
-    const data = await f1Service.getDriverInfo(driverId);
-    return {
-      content: [{ type: "text", text: JSON.stringify(data) }],
-    };
-  });
+server.tool("getDriverInfo", { driverId: z.string() }, async ({ driverId }) => {
+  const data = await f1Service.getDriverInfo(driverId);
+  return {
+    content: [{ type: "text", text: JSON.stringify(data) }],
+  };
+});
 
-  // Tool to find historical session keys
-  mcpServer.tool(
+// Tool to find historical session keys
+server.tool(
   "getHistoricalSessions",
   {
     year: z.number().optional(),
@@ -56,8 +52,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  // Historic data endpoints
-  mcpServer.tool(
+// Historic data endpoints
+server.tool(
   "getHistoricRaceResults",
   {
     year: z.number(),
@@ -71,8 +67,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getDriverStandings",
+server.tool(
+  "getDriverStandings",
   {
     year: z.number(),
   },
@@ -84,8 +80,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getConstructorStandings",
+server.tool(
+  "getConstructorStandings",
   {
     year: z.number(),
   },
@@ -97,8 +93,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getLapTimes",
+server.tool(
+  "getLapTimes",
   {
     year: z.number(),
     round: z.number(),
@@ -112,9 +108,10 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  // New OpenF1 API tools
-  mcpServer.tool(
-    "getWeatherData",
+// New OpenF1 API tools
+
+server.tool(
+  "getWeatherData",
   {
     sessionKey: z.string().optional(),
   },
@@ -126,8 +123,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getCarData",
+server.tool(
+  "getCarData",
   {
     driverNumber: z.string(),
     sessionKey: z.string().optional(),
@@ -141,8 +138,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getPitStopData",
+server.tool(
+  "getPitStopData",
   {
     sessionKey: z.string().optional(),
     driverNumber: z.string().optional(),
@@ -155,8 +152,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getTeamRadio",
+server.tool(
+  "getTeamRadio",
   {
     sessionKey: z.string().optional(),
     driverNumber: z.string().optional(),
@@ -172,8 +169,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getRaceControlMessages",
+server.tool(
+  "getRaceControlMessages",
   {
     sessionKey: z.string().optional(),
   },
@@ -185,9 +182,10 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  // New Ergast API tools
-  mcpServer.tool(
-    "getRaceCalendar",
+// New Ergast API tools
+
+server.tool(
+  "getRaceCalendar",
   {
     year: z.number(),
   },
@@ -199,8 +197,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getCircuitInfo",
+server.tool(
+  "getCircuitInfo",
   {
     circuitId: z.string(),
   },
@@ -212,8 +210,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getSeasonList",
+server.tool(
+  "getSeasonList",
   {
     limit: z.number().optional(),
   },
@@ -225,8 +223,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getQualifyingResults",
+server.tool(
+  "getQualifyingResults",
   {
     year: z.number(),
     round: z.number(),
@@ -239,8 +237,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getDriverInformation",
+server.tool(
+  "getDriverInformation",
   {
     driverId: z.string(),
   },
@@ -252,8 +250,8 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  mcpServer.tool(
-    "getConstructorInformation",
+server.tool(
+  "getConstructorInformation",
   {
     constructorId: z.string(),
   },
@@ -265,147 +263,24 @@ function registerAllTools(mcpServer: McpServer) {
   }
 );
 
-  // Utility tools
-  mcpServer.tool("clearCache", {}, async () => {
-    f1Service.clearCache();
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({ message: "Cache cleared successfully" }),
-        },
-      ],
-    };
-  });
-}
-
-// Register all tools on the main server
-registerAllTools(server);
+// Utility tools
+server.tool("clearCache", {}, async () => {
+  f1Service.clearCache();
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ message: "Cache cleared successfully" }),
+      },
+    ],
+  };
+});
 
 console.error("Starting F1 MCP Server...");
-
-const app = express();
-app.use(express.json());
-
-// To support multiple simultaneous connections we have a lookup object from
-// sessionId to transport
-const transports: { [sessionId: string]: SSEServerTransport } = {};
-
-// Smithery expects /mcp endpoint
-// GET /mcp - establishes SSE connection
-app.get("/mcp", async (_: Request, res: Response) => {
-  const transport = new SSEServerTransport("/mcp", res);
-  transports[transport.sessionId] = transport;
-  res.on("close", () => {
-    delete transports[transport.sessionId];
-  });
+const transport = new StdioServerTransport();
+(async () => {
   await server.connect(transport);
-});
-
-// POST /mcp - handles incoming messages
-app.post("/mcp", async (req: Request, res: Response) => {
-  // Check for sessionId in query params, body, or headers
-  const sessionId = 
-    (req.query.sessionId as string) || 
-    req.body?.sessionId || 
-    req.headers['x-session-id'] as string;
-  
-  if (!sessionId) {
-    // If no sessionId, this is a direct POST request (e.g., from Smithery scanner)
-    // Create a temporary in-memory transport to handle the request
-    try {
-      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-      
-      // Create a new server instance for this request
-      const tempServer = new McpServer({
-        name: "f1-mcp-server",
-        version: "1.0.0",
-      });
-      
-      // Register all tools on the temporary server
-      registerAllTools(tempServer);
-      
-      // Connect server to the transport and start both transports
-      await tempServer.connect(serverTransport);
-      await serverTransport.start();
-      await clientTransport.start();
-      
-      // Handle the incoming message
-      const message = req.body;
-      if (message && typeof message === 'object') {
-        // Set up response handler before sending
-        let responseReceived = false;
-        const responsePromise = new Promise<any>((resolve) => {
-          const timeout = setTimeout(() => {
-            if (!responseReceived) {
-              resolve(null);
-            }
-          }, 10000); // 10 second timeout
-          
-          clientTransport.onmessage = (response: any) => {
-            responseReceived = true;
-            clearTimeout(timeout);
-            resolve(response);
-          };
-        });
-        
-        // Send message through transport
-        await clientTransport.send(message);
-        
-        // Wait for response
-        const response = await responsePromise;
-        
-        // Clean up
-        await clientTransport.close();
-        await serverTransport.close();
-        
-        if (response) {
-          res.json(response);
-        } else {
-          res.status(500).json({ error: "Request timeout" });
-        }
-      } else {
-        res.status(400).json({ error: "Invalid request body" });
-      }
-    } catch (error: any) {
-      console.error("Error handling direct POST request:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
-    }
-    return;
-  }
-  
-  const transport = transports[sessionId];
-  if (transport) {
-    await transport.handlePostMessage(req, res);
-  } else {
-    res.status(400).json({ error: "No transport found for sessionId" });
-  }
-});
-
-// Keep /sse and /messages for backward compatibility
-app.get("/sse", async (_: Request, res: Response) => {
-  const transport = new SSEServerTransport("/messages", res);
-  transports[transport.sessionId] = transport;
-  res.on("close", () => {
-    delete transports[transport.sessionId];
-  });
-  await server.connect(transport);
-});
-
-app.post("/messages", async (req: Request, res: Response) => {
-  const sessionId = req.query.sessionId as string;
-  const transport = transports[sessionId];
-  if (transport) {
-    await transport.handlePostMessage(req, res);
-  } else {
-    res.status(400).send("No transport found for sessionId");
-  }
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.error(`F1 MCP Server listening on port ${port}`);
-});
+})();
 
 process.on("uncaughtException", (err) => {
   console.error("Uncaught exception:", err);
