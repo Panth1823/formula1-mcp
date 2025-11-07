@@ -2,6 +2,7 @@
   "name": "f1-mcp-server",
   "version": "1.0.0",
   "description": "F1 MCP Server with enhanced telemetry and analysis",
+  "module": "./src/index.ts",
   "main": "build/index.js",
   "type": "module",
   "scripts": {
@@ -12,9 +13,9 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "dev:debug": "ts-node-dev --inspect --respawn src/index.ts",
     "prepublishOnly": "npm run build",
-    "smithery:dev": "smithery dev",
-    "smithery:build": "smithery build",
-    "smithery:deploy": "smithery deploy"
+    "smithery:dev": "npx -y @smithery/cli dev",
+    "smithery:build": "npx -y @smithery/cli build",
+    "smithery:deploy": "npx -y @smithery/cli deploy"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",
