@@ -5,11 +5,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
 
-const server = new McpServer({
-  name: "f1-mcp-server",
-  version: "1.0.0",
-});
-
 const f1Service = F1DataService.getInstance();
 
 // Helper function to register all tools on a server instance
@@ -290,21 +285,30 @@ function registerAllTools(mcpServer: McpServer) {
   });
 }
 
-// Register all tools on the main server
-registerAllTools(server);
+export function createServer(): McpServer {
+  const server = new McpServer({
+    name: "f1-mcp-server",
+    version: "1.0.0",
+  });
+  registerAllTools(server);
+  return server;
+}
 
-console.error("Starting F1 MCP Server...");
+// Optional standalone stdio bootstrap for local development.
+// Enable by running with MCP_STANDALONE=1
+if (process.env.MCP_STANDALONE === "1") {
+  const server = createServer();
+  console.error("Starting F1 MCP Server (stdio mode)...");
+  const transport = new StdioServerTransport();
+  (async () => {
+    await server.connect(transport);
+  })();
 
-// Stdio mode for local development
-const transport = new StdioServerTransport();
-(async () => {
-  await server.connect(transport);
-})();
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught exception:", err);
+  });
 
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception:", err);
-});
-
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection:", reason);
-});
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled rejection:", reason);
+  });
+}

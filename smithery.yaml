@@ -1,0 +1,20 @@
+name: f1-mcp-server
+description: Formula 1 MCP server providing live and historical F1 data.
+runtime: typescript
+entry: src/index.ts
+serverExport: createServer
+metadata:
+  homepage: https://github.com/Panth1823/formula1-mcp
+  license: MIT
+  keywords:
+    - mcp
+    - formula1
+    - f1
+    - telemetry
+    - ergast
+    - openf1
+deployment:
+  # Smithery will build using your package.json scripts
+  install: npm ci
+  build: npm run build
+

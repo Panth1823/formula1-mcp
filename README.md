@@ -18,37 +18,25 @@ A TypeScript-based Formula 1 MCP server, bringing the thrill of real-time and hi
 ### Installation
 
 1. Clone the repo:
+
 ```bash
 git clone https://github.com/Panth1823/formula1-mcp
 cd formula1-mcp
 ```
 
 2. Install:
+
 ```bash
 npm install
 ```
 
 3. Build:
+
 ```bash
 npm run build
 ```
 
 ### Deployment Options
-
-#### Option 1: Deploy to Glama (Recommended for Production)
-
-Deploy your server to Glama for a production-ready hosted solution:
-
-1. Push your code to GitHub
-2. Sign up at [glama.ai](https://glama.ai)
-3. Deploy from GitHub repository
-4. See [DEPLOY_GLAMA.md](./DEPLOY_GLAMA.md) for quick start or [GLAMA_DEPLOYMENT.md](./GLAMA_DEPLOYMENT.md) for detailed guide
-
-**Benefits:**
-- ✅ Production-grade infrastructure
-- ✅ Persistent state and dedicated VMs
-- ✅ Built-in monitoring and logs
-- ✅ Free tier available (1 MCP server)
 
 #### Option 2: Local Setup
 
@@ -68,9 +56,36 @@ Add to your MCP client config:
 ```
 
 Config locations:
+
 - Windows: `%APPDATA%\.cursor\mcp.json`
 - MacOS: `~/.cursor/mcp.json`
 - Linux: `~/.config/.cursor/mcp.json`
+
+#### Option 3: Deploy to Smithery
+
+Smithery can host this MCP server and expose it to compatible clients.
+
+1. Build the project:
+
+```bash
+npm ci
+npm run build
+```
+
+2. Test locally with the Smithery CLI (optional):
+
+```bash
+npx smithery build
+npx smithery dev
+```
+
+3. Deploy from the Smithery dashboard by connecting this GitHub repo. The provided `smithery.yaml` uses `npm ci` and `npm run build`.
+
+Local stdio development run:
+
+```bash
+MCP_STANDALONE=1 node build/index.js
+```
 
 ## Available Tools
 
@@ -79,6 +94,7 @@ Config locations:
 Get real-time timing data for the current session.
 
 **Parameters:**
+
 - None required
 
 ### 2. `getCurrentSessionStatus`
@@ -86,6 +102,7 @@ Get real-time timing data for the current session.
 Get status information about the current session.
 
 **Parameters:**
+
 - None required
 
 ### 3. `getDriverInfo`
@@ -93,6 +110,7 @@ Get status information about the current session.
 Get information about a specific driver.
 
 **Parameters:**
+
 - `driverId` (string): Driver identifier (e.g., "max_verstappen", "lewis_hamilton")
 
 ### 4. `getHistoricalSessions`
@@ -100,6 +118,7 @@ Get information about a specific driver.
 Find session keys for historical events.
 
 **Parameters:**
+
 - `year` (number, optional): Season year (e.g., 2023)
 - `circuit_short_name` (string, optional): Circuit name (e.g., "monza", "spa")
 - `country_name` (string, optional): Country name (e.g., "Italy", "Belgium")
@@ -110,6 +129,7 @@ Find session keys for historical events.
 Get race results for a specific historical race.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 - `round` (number): Race number (e.g., 1, 2, 3)
 
@@ -118,6 +138,7 @@ Get race results for a specific historical race.
 Get driver championship standings.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 
 ### 7. `getConstructorStandings`
@@ -125,6 +146,7 @@ Get driver championship standings.
 Get constructor championship standings.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 
 ### 8. `getLapTimes`
@@ -132,6 +154,7 @@ Get constructor championship standings.
 Get lap times for a specific driver.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 - `round` (number): Race number (e.g., 1, 2, 3)
 - `driverId` (string): Driver identifier (e.g., "max_verstappen", "lewis_hamilton")
@@ -141,6 +164,7 @@ Get lap times for a specific driver.
 Get weather data for a session.
 
 **Parameters:**
+
 - `sessionKey` (string, optional): Session identifier
 
 ### 10. `getCarData`
@@ -148,6 +172,7 @@ Get weather data for a session.
 Get detailed car telemetry data.
 
 **Parameters:**
+
 - `driverNumber` (string): Driver's car number (e.g., "44", "33")
 - `sessionKey` (string, optional): Session identifier
 - `filters` (string, optional): Data filters
@@ -157,6 +182,7 @@ Get detailed car telemetry data.
 Get pit stop information.
 
 **Parameters:**
+
 - `driverNumber` (string, optional): Driver's car number
 - `sessionKey` (string, optional): Session identifier
 
@@ -165,6 +191,7 @@ Get pit stop information.
 Get team radio communications.
 
 **Parameters:**
+
 - `driverNumber` (string, optional): Driver's car number
 - `sessionKey` (string, optional): Session identifier
 
@@ -173,6 +200,7 @@ Get team radio communications.
 Get race control messages.
 
 **Parameters:**
+
 - `sessionKey` (string, optional): Session identifier
 
 ### 14. `getRaceCalendar`
@@ -180,6 +208,7 @@ Get race control messages.
 Get the F1 race calendar.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 
 ### 15. `getCircuitInfo`
@@ -187,6 +216,7 @@ Get the F1 race calendar.
 Get detailed circuit information.
 
 **Parameters:**
+
 - `circuitId` (string): Circuit identifier (e.g., "monza", "spa")
 
 ### 16. `getSeasonList`
@@ -194,6 +224,7 @@ Get detailed circuit information.
 Get a list of available F1 seasons.
 
 **Parameters:**
+
 - `limit` (number, optional): Number of seasons to return
 
 ### 17. `getQualifyingResults`
@@ -201,6 +232,7 @@ Get a list of available F1 seasons.
 Get qualifying session results.
 
 **Parameters:**
+
 - `year` (number): Season year (e.g., 2023)
 - `round` (number): Race number (e.g., 1, 2, 3)
 
@@ -209,6 +241,7 @@ Get qualifying session results.
 Get detailed driver information from Ergast API.
 
 **Parameters:**
+
 - `driverId` (string): Driver identifier (e.g., "max_verstappen", "lewis_hamilton")
 
 ### 19. `getConstructorInformation`
@@ -216,6 +249,7 @@ Get detailed driver information from Ergast API.
 Get detailed constructor information from Ergast API.
 
 **Parameters:**
+
 - `constructorId` (string): Constructor identifier (e.g., "red_bull", "mercedes")
 
 ### 20. `clearCache`
@@ -223,6 +257,7 @@ Get detailed constructor information from Ergast API.
 Clear the local cache for F1 data.
 
 **Parameters:**
+
 - None required
 
 ### Data Sources
