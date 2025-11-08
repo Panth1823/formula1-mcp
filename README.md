@@ -36,11 +36,9 @@ npm install
 npm run build
 ```
 
-### Deployment Options
+### Usage
 
-#### Option 2: Local Setup
-
-Add to your MCP client config:
+Add to your Claude Desktop config:
 
 ```json
 {
@@ -56,36 +54,9 @@ Add to your MCP client config:
 ```
 
 Config locations:
-
-- Windows: `%APPDATA%\.cursor\mcp.json`
-- MacOS: `~/.cursor/mcp.json`
-- Linux: `~/.config/.cursor/mcp.json`
-
-#### Option 3: Deploy to Smithery
-
-Smithery can host this MCP server and expose it to compatible clients.
-
-1. Build the project:
-
-```bash
-npm ci
-npm run build
-```
-
-2. Test locally with the Smithery CLI (optional):
-
-```bash
-npx smithery build
-npx smithery dev
-```
-
-3. Deploy from the Smithery dashboard by connecting this GitHub repo. The provided `smithery.yaml` uses `npm ci` and `npm run build`.
-
-Local stdio development run:
-
-```bash
-MCP_STANDALONE=1 node build/index.js
-```
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- MacOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
 ## Available Tools
 

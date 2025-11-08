@@ -13,17 +13,19 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "dev:debug": "ts-node-dev --inspect --respawn src/index.ts",
     "prepublishOnly": "npm run build",
-    "smithery:dev": "npx -y @smithery/cli dev",
-    "smithery:build": "npx -y @smithery/cli build",
-    "smithery:deploy": "npx -y @smithery/cli deploy"
+  },
+  "jest": {
+    "testMatch": [
+      "**/test-*.js"
+    ]
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",
     "axios": "^1.6.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@smithery/sdk": "^1.6.0",
     "@types/express": "^5.0.5",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.19",

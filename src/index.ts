@@ -5,6 +5,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import express from "express";
 import { F1DataService } from "./services/f1-data.service.js";
 import { z } from "zod";
+import { config } from "./config/index.js";
+import { logger } from "./utils/logger.js";
+import { requestIdMiddleware, RequestWithId } from "./middleware/request-id.js";
+import { rateLimitMiddleware } from "./middleware/rate-limiter.js";
+import { authMiddleware } from "./middleware/auth.js";
+import { validateBodyMiddleware, validateQueryMiddleware } from "./middleware/validator.js";
+import { setupGracefulShutdown } from "./utils/graceful-shutdown.js";
+import { metrics, trackRequestMetrics } from "./utils/metrics.js";
 
 const f1Service = F1DataService.getInstance();
 
@@ -123,7 +131,7 @@ function registerAllTools(mcpServer: McpServer) {
   mcpServer.tool(
     "getWeatherData",
     {
-      sessionKey: z.string().optional(),
+      sessionKey: z.string().describe('Session key from getHistoricalSessions. Required for accurate weather data.'),
     },
     async ({ sessionKey }) => {
       const data = await f1Service.getWeatherData(sessionKey);
@@ -137,7 +145,7 @@ function registerAllTools(mcpServer: McpServer) {
     "getCarData",
     {
       driverNumber: z.string(),
-      sessionKey: z.string().optional(),
+      sessionKey: z.string().describe('Session key from getHistoricalSessions. Required for car telemetry data.'),
       filters: z.string().optional(),
     },
     async ({ driverNumber, sessionKey, filters }) => {
@@ -165,12 +173,12 @@ function registerAllTools(mcpServer: McpServer) {
   mcpServer.tool(
     "getTeamRadio",
     {
-      sessionKey: z.string().optional(),
-      driverNumber: z.string().optional(),
+      sessionKey: z.string().describe('Session key from getHistoricalSessions'),
+      driverNumber: z.string().optional().describe('Filter by specific driver number'),
     },
     async ({ sessionKey, driverNumber }) => {
       const data = await f1Service.getTeamRadio(
-        sessionKey || "",
+        sessionKey,
         driverNumber || ""
       );
       return {
@@ -182,10 +190,10 @@ function registerAllTools(mcpServer: McpServer) {
   mcpServer.tool(
     "getRaceControlMessages",
     {
-      sessionKey: z.string().optional(),
+      sessionKey: z.string().describe('Session key from getHistoricalSessions'),
     },
     async ({ sessionKey }) => {
-      const data = await f1Service.getRaceControlMessages(sessionKey || "");
+      const data = await f1Service.getRaceControlMessages(sessionKey);
       return {
         content: [{ type: "text", text: JSON.stringify(data) }],
       };
@@ -299,47 +307,144 @@ export function createServer(): McpServer {
 // Enable by running with MCP_STANDALONE=1
 if (process.env.MCP_STANDALONE === "1") {
   const server = createServer();
-  console.error("Starting F1 MCP Server (stdio mode)...");
+  logger.info("Starting F1 MCP Server (stdio mode)...");
   const transport = new StdioServerTransport();
   (async () => {
     await server.connect(transport);
+    logger.info("F1 MCP Server connected (stdio mode)");
   })();
 
   process.on("uncaughtException", (err) => {
-    console.error("Uncaught exception:", err);
+    logger.error("Uncaught exception", {
+      error: err.message,
+      stack: err.stack,
+    });
   });
 
   process.on("unhandledRejection", (reason) => {
-    console.error("Unhandled rejection:", reason);
+    logger.error("Unhandled rejection", {
+      reason: reason instanceof Error ? reason.message : String(reason),
+    });
   });
 }
 
 // HTTP server mode for MCP over HTTP transport
 // Enabled when PORT is provided (typical deployment environments)
-if (process.env.PORT) {
-  const port = Number(process.env.PORT) || 3000;
+if (process.env.PORT || config.port) {
+  const port = config.port;
   const app = express();
-  app.use(express.json({ limit: "1mb" }));
 
-  // Health endpoint
-  app.get("/health", (_req, res) => {
-    res.status(200).json({ status: "ok" });
+  // Trust proxy (for rate limiting IP detection)
+  app.set('trust proxy', true);
+
+  // Middleware setup
+  app.use(express.json({ limit: "1mb" }));
+  app.use(requestIdMiddleware);
+  app.use(trackRequestMetrics);
+  app.use(validateBodyMiddleware);
+  app.use(validateQueryMiddleware);
+
+  // CORS
+  if (config.enableCors) {
+    app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', config.corsOrigin);
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Request-Id');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+      next();
+    });
+  }
+
+  // Rate limiting (before auth to prevent brute force)
+  app.use(rateLimitMiddleware);
+
+  // Authentication (only for API endpoints, not health checks)
+  app.use((req, res, next) => {
+    // Skip auth for health and well-known endpoints
+    if (req.path.startsWith('/health') || req.path.startsWith('/.well-known')) {
+      return next();
+    }
+    authMiddleware(req, res, next);
   });
+
+  // Health check endpoints
+  app.get("/health", (req: RequestWithId, res) => {
+    res.status(200).json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  });
+
+  // Liveness probe - simple check that server is running
+  app.get("/health/live", (req: RequestWithId, res) => {
+    res.status(200).json({
+      status: "alive",
+      timestamp: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  });
+
+  // Readiness probe - check if server is ready to accept requests
+  app.get("/health/ready", (req: RequestWithId, res) => {
+    // Add checks for dependencies (Redis, Postgres, etc.) here
+    const checks: Record<string, boolean> = {
+      server: true,
+      // Add more checks as needed
+      // redis: redisClient.isReady(),
+      // postgres: postgresClient.isConnected(),
+    };
+
+    const allReady = Object.values(checks).every(v => v === true);
+
+    if (allReady) {
+      res.status(200).json({
+        status: "ready",
+        checks,
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId,
+      });
+    } else {
+      res.status(503).json({
+        status: "not ready",
+        checks,
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId,
+      });
+    }
+  });
+
+  // Metrics endpoint (Prometheus format)
+  if (config.metricsEnabled) {
+    app.get("/metrics", (_req, res) => {
+      res.set('Content-Type', 'text/plain');
+      res.send(metrics.exportPrometheus());
+    });
+  }
 
   // Well-known MCP config
   app.get("/.well-known/mcp-config", (_req, res) => {
     res.json({
       name: "f1-mcp-server",
       version: "1.0.0",
-      endpoint: "/mcp/v1",
+      apiVersion: config.apiVersion,
+      endpoint: `/mcp/${config.apiVersion}`,
     });
   });
 
-  // Minimal MCP JSON-RPC endpoint to respond to initialize
-  app.post("/mcp/v1", (req, res) => {
+  // MCP JSON-RPC endpoint
+  app.post(`/mcp/${config.apiVersion}`, (req: RequestWithId, res) => {
     const body = req.body ?? {};
     const id = body.id ?? null;
     const method = body.method ?? "";
+
+    logger.debug('MCP request', {
+      requestId: req.requestId,
+      method,
+      id,
+    });
 
     if (method === "initialize") {
       return res.json({
@@ -360,7 +465,38 @@ if (process.env.PORT) {
     });
   });
 
-  app.listen(port, () => {
-    console.error(`F1 MCP Server (HTTP) listening on :${port}`);
+  // 404 handler
+  app.use((req: RequestWithId, res) => {
+    res.status(404).json({
+      error: "Not Found",
+      message: `Route ${req.method} ${req.path} not found`,
+      requestId: req.requestId,
+    });
   });
+
+  // Error handler
+  app.use((err: Error, req: RequestWithId, res: express.Response, _next: express.NextFunction) => {
+    logger.error('Unhandled error', {
+      requestId: req.requestId,
+      error: err.message,
+      stack: err.stack,
+    });
+
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: config.nodeEnv === 'development' ? err.message : 'An unexpected error occurred',
+      requestId: req.requestId,
+    });
+  });
+
+  const server = app.listen(port, () => {
+    logger.info(`F1 MCP Server (HTTP) listening on :${port}`, {
+      port,
+      nodeEnv: config.nodeEnv,
+      apiVersion: config.apiVersion,
+    });
+  });
+
+  // Setup graceful shutdown
+  setupGracefulShutdown(server);
 }
