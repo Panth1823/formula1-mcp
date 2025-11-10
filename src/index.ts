@@ -16,6 +16,61 @@ import { metrics, trackRequestMetrics } from "./utils/metrics.js";
 
 const f1Service = F1DataService.getInstance();
 
+// Helper function to format MCP responses with proper error handling
+function formatMCPResponse(data: any, context?: string) {
+  try {
+    // Handle null or undefined
+    if (data === null || data === undefined) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ 
+            message: "No data available",
+            context: context || "unknown"
+          })
+        }]
+      };
+    }
+
+    // Handle empty arrays
+    if (Array.isArray(data) && data.length === 0) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ 
+            message: "No data available",
+            context: context || "query returned empty results",
+            suggestion: context?.includes('live') 
+              ? "Live data is only available during active F1 sessions. Use historical data tools instead."
+              : "Try adjusting your query parameters or check data availability."
+          })
+        }]
+      };
+    }
+
+    // Ensure text is a string
+    const textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    
+    return {
+      content: [{
+        type: "text" as const,
+        text: textContent
+      }]
+    };
+  } catch (error: any) {
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ 
+          error: "Response formatting error",
+          message: error.message,
+          context: context || "unknown"
+        })
+      }]
+    };
+  }
+}
+
 // Helper function to register all tools on a server instance
 function registerAllTools(mcpServer: McpServer) {
   // Live data endpoints
@@ -79,10 +134,18 @@ function registerAllTools(mcpServer: McpServer) {
       round: z.number(),
     },
     async ({ year, round }) => {
-      const data = await f1Service.getHistoricRaceResults(year, round);
-      return {
-        content: [{ type: "text", text: JSON.stringify(data) }],
-      };
+      try {
+        const data = await f1Service.getHistoricRaceResults(year, round);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(data) }],
+        };
+      } catch (error: any) {
+        logger.error('getHistoricRaceResults error', { year, round, error: error.message });
+        // Return empty race object structure
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ Results: [] }) }],
+        };
+      }
     }
   );
 
@@ -247,10 +310,18 @@ function registerAllTools(mcpServer: McpServer) {
       round: z.number(),
     },
     async ({ year, round }) => {
-      const data = await f1Service.getQualifyingResults(year, round);
-      return {
-        content: [{ type: "text", text: JSON.stringify(data) }],
-      };
+      try {
+        const data = await f1Service.getQualifyingResults(year, round);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(data) }],
+        };
+      } catch (error: any) {
+        logger.error('getQualifyingResults error', { year, round, error: error.message });
+        // Return empty qualifying object structure
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ QualifyingResults: [] }) }],
+        };
+      }
     }
   );
 
@@ -291,6 +362,43 @@ function registerAllTools(mcpServer: McpServer) {
         },
       ],
     };
+  });
+  
+  // New Live Streaming Tools
+  mcpServer.tool("getLiveCarData", {}, async () => {
+    const data = await f1Service.getLiveCarData();
+    // Service returns empty array if no live data, which is valid
+    return {
+      content: [{ type: "text", text: JSON.stringify(data) }],
+    };
+  });
+  
+  mcpServer.tool("getLivePositions", {}, async () => {
+    const data = await f1Service.getLivePositions();
+    // Service returns empty array if no live data, which is valid
+    return {
+      content: [{ type: "text", text: JSON.stringify(data) }],
+    };
+  });
+  
+  mcpServer.tool("getLiveRaceControl", {}, async () => {
+    const data = await f1Service.getLiveRaceControl();
+    return {
+      content: [{ type: "text", text: JSON.stringify(data) }],
+    };
+  });
+  
+  mcpServer.tool("getLiveTeamRadio", {}, async () => {
+    const data = await f1Service.getLiveTeamRadio();
+    return {
+      content: [{ type: "text", text: JSON.stringify(data) }],
+    };
+  });
+  
+  mcpServer.tool("getLiveWeather", {}, async () => {
+    const data = await f1Service.getLiveWeather();
+    // Service returns null if no live data, which is valid
+    return formatMCPResponse(data || { message: "No weather data available" }, "live weather");
   });
 }
 
@@ -435,10 +543,11 @@ if (process.env.PORT || config.port) {
   });
 
   // MCP JSON-RPC endpoint
-  app.post(`/mcp/${config.apiVersion}`, (req: RequestWithId, res) => {
+  app.post(`/mcp/${config.apiVersion}`, async (req: RequestWithId, res) => {
     const body = req.body ?? {};
     const id = body.id ?? null;
     const method = body.method ?? "";
+    const params = body.params ?? {};
 
     logger.debug('MCP request', {
       requestId: req.requestId,
@@ -456,6 +565,176 @@ if (process.env.PORT || config.port) {
           capabilities: {},
         },
       });
+    }
+
+    if (method === "tools/list") {
+      // Return list of available tools - manually maintained list
+      const tools = [
+        { name: "getLiveTimingData", description: "Get live F1 timing data", inputSchema: { type: "object", properties: {} } },
+        { name: "getCurrentSessionStatus", description: "Get current F1 session status", inputSchema: { type: "object", properties: {} } },
+        { name: "getDriverInfo", description: "Get driver bio information (Ergast API)", inputSchema: { type: "object", properties: { driverId: { type: "string", description: "Driver ID (e.g., 'hamilton', 'verstappen')" } }, required: ["driverId"] } },
+        { name: "getHistoricalSessions", description: "Find historical F1 sessions", inputSchema: { type: "object", properties: {} } },
+        { name: "getHistoricRaceResults", description: "Get historic race results", inputSchema: { type: "object", properties: { year: { type: "number" }, round: { type: "number" } }, required: ["year", "round"] } },
+        { name: "getDriverStandings", description: "Get driver standings", inputSchema: { type: "object", properties: { year: { type: "number" } }, required: ["year"] } },
+        { name: "getConstructorStandings", description: "Get constructor standings", inputSchema: { type: "object", properties: { year: { type: "number" } }, required: ["year"] } },
+        { name: "getWeatherData", description: "Get weather data", inputSchema: { type: "object", properties: { sessionKey: { type: "string" } }, required: ["sessionKey"] } },
+        { name: "getCarData", description: "Get car telemetry data (requires sessionKey, auto-adds speed>=0 filter)", inputSchema: { type: "object", properties: { sessionKey: { type: "string", description: "Required: Session key to query" }, driverNumber: { type: "string", description: "Driver number" }, filters: { type: "string", description: "Optional filters like 'speed>=300' or 'lap_number=1'" } }, required: ["sessionKey", "driverNumber"] } },
+        { name: "getPitStopData", description: "Get pit stop data", inputSchema: { type: "object", properties: { sessionKey: { type: "string" } }, required: ["sessionKey"] } },
+        { name: "getTeamRadio", description: "Get team radio communications (may not be available for all historical sessions)", inputSchema: { type: "object", properties: { sessionKey: { type: "string", description: "Session key" }, driverNumber: { type: "string", description: "Optional: Filter by specific driver number" } }, required: ["sessionKey"] } },
+        { name: "getRaceControlMessages", description: "Get race control messages", inputSchema: { type: "object", properties: { sessionKey: { type: "string" } }, required: ["sessionKey"] } },
+        { name: "getRaceCalendar", description: "Get F1 race calendar", inputSchema: { type: "object", properties: { year: { type: "number" } }, required: ["year"] } },
+        { name: "getLapTimes", description: "Get lap times", inputSchema: { type: "object", properties: { year: { type: "number" }, round: { type: "number" }, driverId: { type: "string" } }, required: ["year", "round", "driverId"] } },
+        { name: "getQualifyingResults", description: "Get qualifying results", inputSchema: { type: "object", properties: { year: { type: "number" }, round: { type: "number" } }, required: ["year", "round"] } },
+        { name: "getCircuitInfo", description: "Get circuit information", inputSchema: { type: "object", properties: { circuitId: { type: "string" } }, required: ["circuitId"] } },
+        { name: "getSeasonList", description: "Get list of F1 seasons", inputSchema: { type: "object", properties: {} } },
+        { name: "getDriverInformation", description: "Get driver information", inputSchema: { type: "object", properties: { driverId: { type: "string" } }, required: ["driverId"] } },
+        { name: "getConstructorInformation", description: "Get constructor information", inputSchema: { type: "object", properties: { constructorId: { type: "string" } }, required: ["constructorId"] } },
+        { name: "clearCache", description: "Clear server cache", inputSchema: { type: "object", properties: {} } },
+      ];
+      
+      return res.json({
+        jsonrpc: "2.0",
+        id,
+        result: { tools },
+      });
+    }
+
+    if (method === "tools/call") {
+      try {
+        const toolName = params.name;
+        const toolArgs = params.arguments || {};
+        
+        let result;
+        
+        // Execute tool based on name
+        switch (toolName) {
+          case "getLiveTimingData": {
+            const data = await f1Service.getLiveTimingData();
+            result = {
+              content: [{ type: "text", text: JSON.stringify(data.length > 0 ? data : { message: "No live F1 session data available" }) }],
+            };
+            break;
+          }
+          case "getCurrentSessionStatus": {
+            const data = await f1Service.getCurrentSessionStatus();
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getDriverInfo": {
+            const data = await f1Service.getDriverInfo(toolArgs.driverId);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getHistoricalSessions": {
+            const data = await f1Service.getHistoricalSessions(toolArgs);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getHistoricRaceResults": {
+            const data = await f1Service.getHistoricRaceResults(toolArgs.year, toolArgs.round);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getDriverStandings": {
+            const data = await f1Service.getDriverStandings(toolArgs.year);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getConstructorStandings": {
+            const data = await f1Service.getConstructorStandings(toolArgs.year);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getWeatherData": {
+            const data = await f1Service.getWeatherData(toolArgs.sessionKey);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getCarData": {
+            const data = await f1Service.getCarData(toolArgs.driverNumber, toolArgs.sessionKey, toolArgs.filters);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getPitStopData": {
+            const data = await f1Service.getPitStopData(toolArgs.sessionKey, toolArgs.driverNumber);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getTeamRadio": {
+            const data = await f1Service.getTeamRadio(toolArgs.sessionKey, toolArgs.driverNumber);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getRaceControlMessages": {
+            const data = await f1Service.getRaceControlMessages(toolArgs.sessionKey);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getRaceCalendar": {
+            const data = await f1Service.getRaceCalendar(toolArgs.year);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getLapTimes": {
+            const data = await f1Service.getLapTimes(toolArgs.year, toolArgs.round, toolArgs.driverId);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getQualifyingResults": {
+            const data = await f1Service.getQualifyingResults(toolArgs.year, toolArgs.round);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getCircuitInfo": {
+            const data = await f1Service.getCircuitInfo(toolArgs.circuitId);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getSeasonList": {
+            const data = await f1Service.getSeasonList(toolArgs.limit);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getDriverInformation": {
+            const data = await f1Service.getDriverInformation(toolArgs.driverId);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "getConstructorInformation": {
+            const data = await f1Service.getConstructorInformation(toolArgs.constructorId);
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          case "clearCache": {
+            const data = await f1Service.clearCache();
+            result = { content: [{ type: "text", text: JSON.stringify(data) }] };
+            break;
+          }
+          default:
+            throw new Error(`Unknown tool: ${toolName}`);
+        }
+        
+        return res.json({
+          jsonrpc: "2.0",
+          id,
+          result,
+        });
+      } catch (error: any) {
+        logger.error('Tool call error', {
+          requestId: req.requestId,
+          error: error.message,
+          stack: error.stack,
+        });
+        
+        return res.json({
+          jsonrpc: "2.0",
+          id,
+          error: {
+            code: -32000,
+            message: error.message || "Tool execution failed",
+          },
+        });
+      }
     }
 
     return res.status(200).json({

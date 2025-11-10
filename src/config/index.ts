@@ -53,6 +53,13 @@ export interface ServerConfig {
   openf1BaseUrl: string;
   fastf1BaseUrl: string;
   
+  // OpenF1 Live Data / Streaming
+  openf1Username?: string;
+  openf1Password?: string;
+  openf1StreamingEnabled: boolean;
+  mqttEnabled: boolean;
+  mqttUrl: string;
+  
   // Graceful Shutdown
   shutdownTimeoutMs: number;
 }
@@ -125,6 +132,13 @@ export function loadConfig(): ServerConfig {
     // External APIs
     openf1BaseUrl: process.env.OPENF1_BASE_URL || 'https://api.openf1.org/v1',
     fastf1BaseUrl: process.env.FASTF1_BASE_URL || 'https://api.jolpi.ca/ergast/f1',
+    
+    // OpenF1 Live Data / Streaming
+    openf1Username: process.env.OPENF1_USERNAME,
+    openf1Password: process.env.OPENF1_PASSWORD,
+    openf1StreamingEnabled: parseBoolean(process.env.OPENF1_STREAMING_ENABLED, false),
+    mqttEnabled: parseBoolean(process.env.MQTT_ENABLED, false),
+    mqttUrl: process.env.MQTT_URL || 'wss://mqtt.openf1.org:8084/mqtt',
     
     // Graceful Shutdown
     shutdownTimeoutMs: parseNumber(process.env.SHUTDOWN_TIMEOUT_MS, 30000), // 30 seconds

@@ -9,10 +9,16 @@
     "build": "tsc",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:openf1": "node test-openf1.js",
+    "test:ergast": "node test-ergast.js",
+    "test:live": "node test-live-data.js",
+    "test:server": "node test-mcp-server.js",
+    "test:apis": "node test-openf1.js && node test-ergast.js",
+    "test:all": "node test-openf1.js && node test-ergast.js && node test-live-data.js",
     "start": "node build/index.js",
     "dev": "ts-node-dev --respawn src/index.ts",
     "dev:debug": "ts-node-dev --inspect --respawn src/index.ts",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "jest": {
     "testMatch": [
@@ -21,8 +27,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.21.0",
+    "@types/mqtt": "^0.0.34",
     "axios": "^1.6.7",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "mqtt": "^5.14.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
