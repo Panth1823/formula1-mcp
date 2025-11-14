@@ -769,11 +769,18 @@ if (process.env.PORT || config.port) {
   });
 
   const server = app.listen(port, () => {
+    const baseUrl = `http://localhost:${port}`;
     logger.info(`F1 MCP Server (HTTP) listening on :${port}`, {
       port,
       nodeEnv: config.nodeEnv,
       apiVersion: config.apiVersion,
     });
+    logger.info(`MCP Endpoint: ${baseUrl}/mcp/${config.apiVersion}`);
+    logger.info(`Discovery Endpoint: ${baseUrl}/.well-known/mcp-config`);
+    logger.info(`Health Check: ${baseUrl}/health`);
+    if (config.metricsEnabled) {
+      logger.info(`Metrics: ${baseUrl}/metrics`);
+    }
   });
 
   // Setup graceful shutdown
