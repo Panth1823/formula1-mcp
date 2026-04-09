@@ -411,6 +411,11 @@ export function createServer(): McpServer {
   return server;
 }
 
+// Used by Smithery during publish-time capability scanning.
+export function createSandboxServer(): McpServer {
+  return createServer();
+}
+
 // Optional standalone stdio bootstrap for local development.
 // Enable by running with MCP_STANDALONE=1
 if (process.env.MCP_STANDALONE === "1") {
