@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: formula1-mcp
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
